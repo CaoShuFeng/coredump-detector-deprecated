@@ -1,0 +1,7 @@
+apiVersion: coredump.k8s.io/v1alpha1
+kind: CoredumpQuota
+metadata:
+  name: coredumpquota
+  namespace: default
+spec:
+  hard: 1Gi
