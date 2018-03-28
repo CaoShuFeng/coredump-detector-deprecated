@@ -42,9 +42,10 @@ func main() {
 		os.Exit(0)
 	}
 	kubeClient := kube.NewClientOrDie(cdo.KubeConfig)
-	dockerClient := libdocker.NewClientOrDie()
+	dockerClient := libdocker.NewDockerClientOrDie()
+	CRIClient := libdocker.NewCRIClientOrDie()
 
-	if err := dump.Dump(kubeClient, dockerClient, po, cdo); err != nil {
+	if err := dump.Dump(kubeClient, dockerClient, CRIClient, po, cdo); err != nil {
 		glog.Errorf(err.Error())
 	}
 	glog.Flush()

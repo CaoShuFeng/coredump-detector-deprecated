@@ -17,7 +17,6 @@ limitations under the License.
 package dump
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -31,12 +30,12 @@ import (
 	"k8s.io/coredump-detector/pkg/kube"
 	"k8s.io/coredump-detector/pkg/libdocker"
 
-	"github.com/docker/docker/api/types"
 	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apitypes "k8s.io/apimachinery/pkg/types"
+	internalapi "k8s.io/kubernetes/pkg/kubelet/apis/cri"
 )
 
 type DumpInfo struct {
@@ -49,54 +48,47 @@ type DumpInfo struct {
 	Time          string
 }
 
-func Dump(kc kube.Client, dc libdocker.Client, progressInfo *options.ProgressInfo, options *options.CoredumpDetectorOptions) error {
+func Dump(kc kube.Client, dc libdocker.Client, cc libdocker.CRIClient, progressInfo *options.ProgressInfo, options *options.CoredumpDetectorOptions) error {
 	if progressInfo.ContainerPid == progressInfo.HostPid {
 		return saveOthers(progressInfo, options)
 	}
-	containers, err := dc.ContainerList(types.ContainerListOptions{})
+	containers, err := libdocker.ListAllContainers(cc.CRIRuntimeClient)
 	if err != nil {
 		return err
 	}
 	for _, c := range containers {
-		for _, name := range c.Names {
-			// a k8s container
-			// format of container name:
-			// https://github.com/kubernetes/kubernetes/blob/v1.8.0-beta.1/pkg/kubelet/dockershim/naming.go
-			if strings.HasPrefix(name, "/k8s") {
-				body, err := dc.ContainerTop(c.ID)
+		body, err := dc.ContainerTop(c.Id)
+		if err != nil {
+			return err
+		}
+		index := 0
+		// get the index of PID
+		for i, t := range body.Titles {
+			if strings.EqualFold(t, "PID") {
+				index = i
+			}
+		}
+		for _, p := range body.Processes {
+			if p[index] == progressInfo.HostPid {
+				//a progress in k8s pod.
+				// get pod's info from kubernetes cluster
+				dumpInfo, _ := getDumpInfo(cc.CRIRuntimeClient, c.Id, c.Metadata.Name, progressInfo)
+				ok, err := validate(dumpInfo, kc)
 				if err != nil {
 					return err
 				}
-				index := 0
-				// get the index of PID
-				for i, t := range body.Titles {
-					if strings.EqualFold(t, "PID") {
-						index = i
-					}
+				if !ok {
+					glog.Info("can not find pod info from kube-apiserver")
+					return nil
 				}
-				for _, p := range body.Processes {
-					if p[index] == progressInfo.HostPid {
-						//a progress in k8s pod.
-						// get pod's info from kubernetes cluster
-						dumpInfo, _ := parseContainerName(name, progressInfo)
-						ok, err := validate(dumpInfo, kc)
-						if err != nil {
-							return err
-						}
-						if !ok {
-							glog.Info("can not find pod info from kube-apiserver")
-							return nil
-						}
-						size, err := save(dumpInfo, options)
-						if err != nil {
-							return err
-						}
-						return saveToApiServer(dumpInfo, options, size)
-					}
+				size, err := save(dumpInfo, options)
+				if err != nil {
+					return err
 				}
-
+				return saveToApiServer(dumpInfo, options, size)
 			}
 		}
+
 	}
 	return saveOthers(progressInfo, options)
 }
@@ -120,21 +112,17 @@ func saveOthers(progressInfo *options.ProgressInfo, options *options.CoredumpDet
 	return nil
 }
 
-func parseContainerName(name string, progressInfo *options.ProgressInfo) (*DumpInfo, error) {
-	// Docker adds a "/" prefix to names. so trim it.
-	name = strings.TrimPrefix(name, "/")
-
-	parts := strings.Split(name, "_")
-	// Tolerate the random suffix.
-	// TODO: Remove 7 field case when docker 1.11 is deprecated.
-	if len(parts) != 6 && len(parts) != 7 {
-		return nil, fmt.Errorf("failed to parse the container name: %q", name)
+func getDumpInfo(rs internalapi.RuntimeService, id string, name string, progressInfo *options.ProgressInfo) (*DumpInfo, error) {
+	podStatus, err := libdocker.GetPodStatus(rs, id)
+	if err != nil {
+		return nil, err
 	}
+
 	return &DumpInfo{
-		ContainerName: parts[1],
-		Pod:           parts[2],
-		Namespace:     parts[3],
-		Uid:           parts[4],
+		ContainerName: name,
+		Pod:           podStatus.Metadata.Name,
+		Namespace:     podStatus.Metadata.Namespace,
+		Uid:           podStatus.Metadata.Uid,
 		Pid:           progressInfo.HostPid,
 		Filename:      progressInfo.Filename,
 		Time:          progressInfo.Time,
