@@ -17,14 +17,12 @@ limitations under the License.
 package libdocker
 
 import (
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"golang.org/x/net/context"
 )
 
 type Client interface {
-	ContainerList(options types.ContainerListOptions) ([]types.Container, error)
 	ContainerTop(containerID string) (container.ContainerTopOKBody, error)
 }
 
@@ -32,17 +30,12 @@ type dockerClient struct {
 	cli *client.Client
 }
 
-func (c dockerClient) ContainerList(options types.ContainerListOptions) ([]types.Container, error) {
-	ctx := context.Background()
-	return c.cli.ContainerList(ctx, options)
-}
-
 func (c dockerClient) ContainerTop(containerID string) (container.ContainerTopOKBody, error) {
 	ctx := context.Background()
 	return c.cli.ContainerTop(ctx, containerID, nil)
 }
 
-func NewClientOrDie() Client {
+func NewDockerClientOrDie() Client {
 	//of course we only support dockerd running in localhost.
 	cli, err := client.NewClient("unix:///var/run/docker.sock", "", nil, nil)
 	if err != nil {
