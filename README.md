@@ -85,7 +85,7 @@ type QuotaStatus struct {
 ```
 
 # coredump-controller
-Now CRD in kubernetes doesn't support quota, so we deploy a controller wo work as
+Now CRD in kubernetes doesn't support quota, so we deploy a controller who work as
 quota admission controller. When a new coredump is registered in the apiserver,
 coredump-controller will check the size of coredump. If total size of coredumps
 exceeds the quota, the coredump file will not be saved to persistent volume.
@@ -104,7 +104,7 @@ Run `make` in the top directory. It will:
 * Build the binary.
 * Build the docker image.
 
-Then you may push the iamge to your own registry according to this doc:
+Then you may push the image to your own registry according to this doc:
 https://docs.docker.com/engine/reference/commandline/push/
 
 ## deploy into the cluster
@@ -114,6 +114,7 @@ Coredump-detector uses service account to authenticate to kube-apiserver.
 * a persistent volume claim named "nfs". It's easy to change this name
 by modify file yaml/coredump-detector-daemonset.yaml. Core dump files
 are saved in persistent volume, so a pvc is required.
+* Options of kube-apiserver `--allow-privileged` should be set to true.
 
 It's very easy to start the daemonset by creating those objects in cluster:
 ``` bash
