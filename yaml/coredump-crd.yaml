@@ -27,4 +27,8 @@ spec:
     plural: coredumps
     singular: coredump
   scope: Namespaced
+    # subresources describes the subresources for custom resources.
+  subresources:
+    # status enables the status subresource.
+    status: {}
   version: v1alpha1

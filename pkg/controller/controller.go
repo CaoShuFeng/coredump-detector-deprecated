@@ -195,9 +195,10 @@ func (c *CoredumpController) onAdd(obj interface{}) {
 
 func (c *CoredumpController) saveStatus(example *coredump.Coredump) {
 	err := c.CoredumpClient.Put().
-		Name(example.ObjectMeta.Name).
 		Namespace(example.ObjectMeta.Namespace).
 		Resource(coredump.CoredumpResourcePlural).
+		Name(example.ObjectMeta.Name).
+		SubResource("status").
 		Body(example).
 		Do().
 		Error()

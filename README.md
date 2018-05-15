@@ -84,6 +84,16 @@ type QuotaStatus struct {
 }
 ```
 
+### Subresources
+
+Custom Resources support `/status` subresource as an [alpha feature](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/#subresources) in v1.10.You will need a Kubernetes cluster with version 1.10.
+This means that controller can update only the status part of the custom resource.
+Enable this feature using the `CustomResourceSubresources` feature gate on the [kube-apiserver](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/#options):
+
+```sh
+--feature-gates=CustomResourceSubresources=true
+```
+
 # coredump-controller
 Now CRD in kubernetes doesn't support quota, so we deploy a controller who work as
 quota admission controller. When a new coredump is registered in the apiserver,
@@ -93,7 +103,7 @@ exceeds the quota, the coredump file will not be saved to persistent volume.
 # daemonset
 daemonset runs in each kubelet node. It mounts a kubernetes persistent volume and
 moves core dump file to the volume. If coredump-controller mark a coredump as `Allowed`
-in apiserver,daemonset will save the coredump file into the persistent volume. 
+in apiserver,daemonset will save the coredump file into the persistent volume.
 Currently, all coredump files are save in the same persistent volume, and cluster
 administrator will use extra tools to implement tenancy isolation. For example, nfs
 access control, or publishing core dump files by a web application.
@@ -118,9 +128,9 @@ are saved in persistent volume, so a pvc is required.
 
 It's very easy to start the daemonset by creating those objects in cluster:
 ``` bash
-kubectl create -f yaml/coredump-crd.yaml 
+kubectl create -f yaml/coredump-crd.yaml
 # setting quota is optional, if no quota is set for a namespace, it means unlimited.
-kubectl create -f yaml/coredump-quota.yaml 
+kubectl create -f yaml/coredump-quota.yaml
 kubectl create -f yaml/coredump-detector-rbac.yaml
 kubectl create -f yaml/coredump-controller-deployment.yaml
 kubectl create -f yaml/coredump-detector-daemonset.yaml
