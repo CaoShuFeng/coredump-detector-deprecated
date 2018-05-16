@@ -32,3 +32,21 @@ spec:
     # status enables the status subresource.
     status: {}
   version: v1alpha1
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            ContainerName:
+              type: string
+            Pod:
+              type: string
+            Pid:
+              type: integer
+              minimum: 0
+            Filename:
+              type: string
+            Time:
+              type: dateTime
+            Volume:
+              type: string
